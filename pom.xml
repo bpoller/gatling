@@ -16,6 +16,8 @@
 		<module>gatling-charts</module>
 		<module>gatling-bundle</module>
 		<module>gatling-maven-plugin</module>
+		<module>gatling-tests</module>
+		<module>gatling-protodemo</module>
 	</modules>
 
 	<licenses>
@@ -167,6 +169,16 @@
 				<artifactId>gatling-maven-plugin</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+            <dependency>
+                <groupId>com.excilys.ebi.gatling</groupId>
+                <artifactId>gatling-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.excilys.ebi.gatling</groupId>
+                <artifactId>gatling-protodemo</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 			<dependency>
 				<groupId>org.scala-lang</groupId>
 				<artifactId>scala-library</artifactId>
