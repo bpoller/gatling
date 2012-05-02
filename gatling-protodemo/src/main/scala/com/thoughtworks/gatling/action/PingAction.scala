@@ -29,16 +29,25 @@ class PingAction(requestName: String, next: ActorRef, requestBuilder: PingUrlBui
   extends Action with Logging {
 
   def execute(session: Session) {
-    System.out.println("I'm pinging...")
-    val requestStartDate = currentTimeMillis()
     val pinger = requestBuilder.build
+    val requestStartDate = currentTimeMillis()
 
-    pinger.ping
+    System.out.println("I'm pinging "+pinger.url+" with timeout "+pinger.timeout)
+
+    val result = pinger.ping
 
     val responseEndDate = currentTimeMillis()
     val endOfRequestSendingDate = currentTimeMillis()
-    val requestResult = RequestStatus.OK
-    val requestMessage = "it's all good"
+    val requestResult = if (result) {
+      RequestStatus.OK
+    } else {
+      RequestStatus.KO
+    }
+    val requestMessage = if (result) {
+      "Success"
+    } else {
+      "Fail"
+    }
 
     DataWriter.logRequest(session.scenarioName, session.userId, "Request " + requestName, requestStartDate, responseEndDate, endOfRequestSendingDate, endOfRequestSendingDate, requestResult, requestMessage)
     next ! session

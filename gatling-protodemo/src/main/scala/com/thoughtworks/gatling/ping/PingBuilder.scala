@@ -20,5 +20,5 @@ object PingBuilder {
 }
 
 class PingBuilder(val requestName: String) {
-  def url(url: String) = new PingUrlBuilder(requestName, url)
+  def url(url: String) = new PingUrlBuilder(requestName, url, 3000)
 }

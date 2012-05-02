@@ -22,8 +22,10 @@ object PingUrlBuilder {
   implicit def toActionBuilder(requestBuilder: PingUrlBuilder) = requestBuilder.toActionBuilder
 }
 
-class PingUrlBuilder(val requestName : String, val url : String) {
-  def build = new Pinger(url, 1000)
+class PingUrlBuilder(val requestName : String, val url : String, val timeout : Int) {
+  private[gatling] def build = new Pinger(url, timeout)
+
+  def timeout(timeout : Int) = new PingUrlBuilder(requestName, url, timeout)
 
   private[gatling] def toActionBuilder = new PingActionBuilder(requestName, this, null)
 }

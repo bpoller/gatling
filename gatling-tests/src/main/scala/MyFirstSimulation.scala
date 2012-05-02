@@ -24,6 +24,7 @@ class MyFirstSimulation extends Simulation {
       .exec(
         ping("Google")
           .url("www.google.com")
+          .timeout(1)
       )
       .exec(
         ping("ThoughtWorks")
