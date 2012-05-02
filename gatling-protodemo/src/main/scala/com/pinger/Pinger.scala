@@ -17,6 +17,12 @@ package com.pinger
 
 import java.net.InetAddress
 
+/**
+ * Don't worry too much about me. I represent a class in a 3rd party library.
+ * This is equivalent to the ning.Request instance used by the Http protocol.
+ * @param url
+ * @param timeout
+ */
 class Pinger(val url : String, val timeout : Int) {
   def ping = InetAddress.getByName(url).isReachable(timeout)
 }

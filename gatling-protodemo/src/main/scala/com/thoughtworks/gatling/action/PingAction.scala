@@ -1,18 +1,3 @@
-/**
- * Copyright 2011-2012 eBusiness Information, Groupe Excilys (www.excilys.com)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * 		http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.thoughtworks.gatling.action
 
 import com.thoughtworks.gatling.ping.PingUrlBuilder
@@ -25,16 +10,25 @@ import com.excilys.ebi.gatling.core.result.writer.DataWriter
 import com.excilys.ebi.gatling.core.result.message.RequestStatus
 import java.net.InetAddress
 
+/**
+ * Finally, the big guy. This is our PingAction, an Action being the thing which
+ * actually *does something*. In our case, it executes the ping.
+ */
 class PingAction(requestName: String, next: ActorRef, requestBuilder: PingUrlBuilder)
   extends Action with Logging {
 
+  /**
+   * Execute our ping request, or whatever request you're actually doing. This
+   * uses the PingUrlBuilder to build the 3rd party Pinger instance; then
+   * it executes the ping and records the result.
+   */
   def execute(session: Session) {
-    val pinger = requestBuilder.build
+    val pinger = requestBuilder.build           // build our 3rd party instance
     val requestStartDate = currentTimeMillis()
 
     System.out.println("I'm pinging "+pinger.url+" with timeout "+pinger.timeout)
 
-    val result = pinger.ping
+    val result = pinger.ping                    // execute the ping
 
     val responseEndDate = currentTimeMillis()
     val endOfRequestSendingDate = currentTimeMillis()
@@ -49,7 +43,12 @@ class PingAction(requestName: String, next: ActorRef, requestBuilder: PingUrlBui
       "Fail"
     }
 
+    // This is an important line. This actually records the request and it's result. Without this call
+    // you won't see any data. Customise the parameters to your heart's content.
     DataWriter.logRequest(session.scenarioName, session.userId, "Request " + requestName, requestStartDate, responseEndDate, endOfRequestSendingDate, endOfRequestSendingDate, requestResult, requestMessage)
+
+    // This is also an important line. This passes the focus onto the next action in the chain.
+    // Without this line your pipeline will just hang indefinitely.
     next ! session
   }
 }

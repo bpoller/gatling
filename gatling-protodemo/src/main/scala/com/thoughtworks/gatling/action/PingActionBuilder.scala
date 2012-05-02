@@ -21,15 +21,21 @@ import com.excilys.ebi.gatling.core.action._
 import akka.actor.{Props, ActorRef}
 import com.thoughtworks.gatling.ping.PingUrlBuilder
 
+/**
+ * This creates a PingAction from our PingUrlBuilder. It does something with the Actor
+ * framework stuff, but I'm not familiar with all that jazz so I can't really shine
+ * much light on that yet.
+ */
 class PingActionBuilder(requestName: String, requestBuilder: PingUrlBuilder, next: ActorRef) extends ActionBuilder {
-
+  /**
+   * Something todo with the action chain. Creates a new instance of our builder with a new
+   * next action point.
+   */
   private[com] def withNext(next: ActorRef) = new PingActionBuilder(requestName, requestBuilder, next)
 
-//  private[gatling] lazy val resolvedChecks = checks.find(_.phase == StatusReceived) match {
-//    case None => HttpRequestActionBuilder.DEFAULT_HTTP_STATUS_CHECK :: checks
-//    case _ => checks
-//  }
-
+  /**
+   * This actually creates our PingAction, and wires it up with the Actor stuff.
+   */
   private[com] def build(protocolConfigurationRegistry: ProtocolConfigurationRegistry) = {
     system.actorOf(Props(new PingAction(requestName, next, requestBuilder)))
   }
