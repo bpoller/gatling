@@ -17,7 +17,7 @@
 		<module>gatling-bundle</module>
 		<module>gatling-maven-plugin</module>
 		<module>gatling-tests</module>
-		<module>gatling-protodemo</module>
+		<module>gatling-socket</module>
 	</modules>
 
 	<licenses>
@@ -176,7 +176,7 @@
             </dependency>
             <dependency>
                 <groupId>com.excilys.ebi.gatling</groupId>
-                <artifactId>gatling-protodemo</artifactId>
+                <artifactId>gatling-socket</artifactId>
                 <version>${project.version}</version>
             </dependency>
 			<dependency>

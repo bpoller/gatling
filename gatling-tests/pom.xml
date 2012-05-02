@@ -31,7 +31,7 @@
         </dependency>
         <dependency>
             <groupId>com.excilys.ebi.gatling</groupId>
-            <artifactId>gatling-protodemo</artifactId>
+            <artifactId>gatling-socket</artifactId>
         </dependency>
 		<!--<dependency>-->
 			<!--<groupId>com.ning</groupId>-->

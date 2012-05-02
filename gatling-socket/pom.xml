@@ -6,9 +6,9 @@
 		<groupId>com.excilys.ebi.gatling</groupId>
 		<version>1.1.5-SNAPSHOT</version>
 	</parent>
-	<artifactId>gatling-protodemo</artifactId>
+	<artifactId>gatling-socket</artifactId>
 	<name>${project.artifactId}</name>
-	<description>Gatling Proto demo</description>
+	<description>Gatling Web Sockets</description>
 
 	<dependencies>
 		<!-- compile -->
