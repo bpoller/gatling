@@ -13,30 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.thoughtworks.gatling.action
+package com.thoughtworks.gatling.socket.action
 
 import com.excilys.ebi.gatling.core.action.builder.ActionBuilder
 import com.excilys.ebi.gatling.core.config.ProtocolConfigurationRegistry
 import com.excilys.ebi.gatling.core.action._
 import akka.actor.{Props, ActorRef}
-import com.thoughtworks.gatling.ping.PingUrlBuilder
+import com.thoughtworks.gatling.socket.request.UrlWebSocketBuilder
 
 /**
- * This creates a PingAction from our PingUrlBuilder. It does something with the Actor
+ * This creates a WebSocketAction from our UrlWebSocketBuilder. It does something with the Actor
  * framework stuff, but I'm not familiar with all that jazz so I can't really shine
  * much light on that yet.
  */
-class PingActionBuilder(requestName: String, requestBuilder: PingUrlBuilder, next: ActorRef) extends ActionBuilder {
+class WebSocketActionBuilder(requestName: String, requestBuilder: UrlWebSocketBuilder, next: ActorRef) extends ActionBuilder {
   /**
    * Something todo with the action chain. Creates a new instance of our builder with a new
    * next action point.
    */
-  private[com] def withNext(next: ActorRef) = new PingActionBuilder(requestName, requestBuilder, next)
+  private[com] def withNext(next: ActorRef) = new WebSocketActionBuilder(requestName, requestBuilder, next)
 
   /**
-   * This actually creates our PingAction, and wires it up with the Actor stuff.
+   * This actually creates our WebSocketAction, and wires it up with the Actor stuff.
    */
   private[com] def build(protocolConfigurationRegistry: ProtocolConfigurationRegistry) = {
-    system.actorOf(Props(new PingAction(requestName, next, requestBuilder)))
+    system.actorOf(Props(new WebSocketAction(requestName, next, requestBuilder)))
   }
 }

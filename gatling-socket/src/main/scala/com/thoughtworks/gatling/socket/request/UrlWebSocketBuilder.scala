@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.excilys.ebi.gatling.core.scenario.configuration.Simulation
-import com.excilys.ebi.gatling.core.Predef._
-import com.thoughtworks.gatling.socket.Predef._
+package com.thoughtworks.gatling.socket.request
 
-class MyFirstSimulation extends Simulation {
-  def apply = {
-    val scn = scenario("My first scenario")
-      .exec(
-        socket("WS Echo")
-          .url("ws://echo.websocket.org")
-      )
+import com.thoughtworks.gatling.socket.action.WebSocketActionBuilder
 
-    List(scn.configure.users(1))
-  }
+class UrlWebSocketBuilder(val requestName : String, val url : String) {
+  private[gatling] def toActionBuilder = new WebSocketActionBuilder(requestName, this, null)
+}
+
+/**
+ * Just setup the implicit conversion here. This is used by the exec method of Gatling
+ * to convert our PingUrlBuilder into a WebSocketActionBuilder.
+ */
+object UrlWebSocketBuilder {
+  implicit def toActionBuilder(requestBuilder: UrlWebSocketBuilder) = requestBuilder.toActionBuilder
 }

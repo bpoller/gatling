@@ -13,18 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.excilys.ebi.gatling.core.scenario.configuration.Simulation
-import com.excilys.ebi.gatling.core.Predef._
-import com.thoughtworks.gatling.socket.Predef._
+package com.thoughtworks.gatling.socket.async
 
-class MyFirstSimulation extends Simulation {
-  def apply = {
-    val scn = scenario("My first scenario")
-      .exec(
-        socket("WS Echo")
-          .url("ws://echo.websocket.org")
-      )
+import com.excilys.ebi.gatling.core.session.Session
+import java.lang.System._
+import akka.actor.{ActorRef, Actor}
 
-    List(scn.configure.users(1))
+class GatlingAsyncHandlerActor(val session : Session, val next : ActorRef) extends Actor {
+  def receive = {
+    case "disconnected" => {
+      System.out.println("Socket Disconnected")
+      executeNext(session)
+    }
+    case m => {
+      System.out.println("oh crap I received something: "+ m)
+    }
+  }
+
+  private def executeNext(newSession: Session) {
+    next ! newSession.setAttribute(Session.LAST_ACTION_DURATION_KEY, currentTimeMillis) // - responseEndDate)
+    context.stop(self)
   }
 }

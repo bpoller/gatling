@@ -13,16 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.pinger
+package com.thoughtworks.gatling.socket.request
 
-import java.net.InetAddress
+object WebSocketBuilder {
+  def socket(requestName: String) = new WebSocketBuilder(requestName)
+}
 
-/**
- * Don't worry too much about me. I represent a class in a 3rd party library.
- * This is equivalent to the ning.Request instance used by the Http protocol.
- * @param url
- * @param timeout
- */
-class Pinger(val url : String, val timeout : Int) {
-  def ping = InetAddress.getByName(url).isReachable(timeout)
+class WebSocketBuilder(val requestName : String) {
+  def url(url : String) = new UrlWebSocketBuilder(requestName, url)
 }
