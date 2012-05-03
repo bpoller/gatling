@@ -17,7 +17,9 @@ package com.thoughtworks.gatling.socket.request
 
 import com.thoughtworks.gatling.socket.action.WebSocketActionBuilder
 
-class UrlWebSocketBuilder(val requestName : String, val url : String) {
+class UrlWebSocketBuilder(val requestName : String, val url : String, val messages : List[String]) {
+  def send(message : String) = new UrlWebSocketBuilder(requestName, url, message :: messages)
+
   private[gatling] def toActionBuilder = new WebSocketActionBuilder(requestName, this, null)
 }
 

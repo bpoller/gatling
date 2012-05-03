@@ -20,5 +20,5 @@ object WebSocketBuilder {
 }
 
 class WebSocketBuilder(val requestName : String) {
-  def url(url : String) = new UrlWebSocketBuilder(requestName, url)
+  def url(url : String) = new UrlWebSocketBuilder(requestName, url, Nil)
 }

@@ -18,10 +18,21 @@ package com.thoughtworks.gatling.socket.async
 import com.excilys.ebi.gatling.core.session.Session
 import java.lang.System._
 import akka.actor.{ActorRef, Actor}
+import client.WebSocketClient.Messages
 
-class GatlingAsyncHandlerActor(val session : Session, val next : ActorRef) extends Actor {
+class GatlingAsyncHandlerActor(val session : Session, val next : ActorRef, val messagesToSend : List[String]) extends Actor {
   def receive = {
-    case "disconnected" => {
+    case Messages.Connected(client) => {
+      System.out.println("Socket Connected")
+      if (messagesToSend == null) {
+        System.out.println("error")
+      }
+      messagesToSend.foreach(msg => {
+        client.send(msg)
+        System.out.println("Sent " + msg)
+      })
+    }
+    case Messages.Disconnected => {
       System.out.println("Socket Disconnected")
       executeNext(session)
     }
