@@ -13,20 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import com.excilys.ebi.gatling.core.scenario.configuration.Simulation
-import com.excilys.ebi.gatling.core.Predef._
-import com.thoughtworks.gatling.socket.Predef._
+package com.thoughtworks.gatling.socket.check
 
-class MyFirstSimulation extends Simulation {
-  def apply = {
-    val scn = scenario("My first scenario")
-      .exec(
-        socket("WS Echo")
-          .url("echo.websocket.org")
-            .send("Hello?")
-            .check(receive.is("Hello"))
-      )
+import com.excilys.ebi.gatling.core.check.Check
+import com.excilys.ebi.gatling.core.session.EvaluatableString
+import com.excilys.ebi.gatling.core.check.Matcher
 
-    List(scn.configure.users(1))
-  }
-}
+/**
+ * This class serves as model for the Socket-specific checks
+ */
+class SocketCheck(expression: EvaluatableString, matcher: Matcher[String], saveAs: Option[String]) extends Check[String](expression, matcher, saveAs)

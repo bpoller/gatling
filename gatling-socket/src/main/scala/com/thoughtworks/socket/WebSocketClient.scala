@@ -13,38 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package client
+package com.thoughtworks.socket
 
+import akka.actor.ActorRef
+import org.jboss.netty.util.CharsetUtil
+import org.jboss.netty.handler.codec.http.websocketx._
+import grizzled.slf4j.Logging
+import org.jboss.netty.handler.codec.http.HttpHeaders.{Values, Names}
+import org.jboss.netty.handler.codec.http._
+import org.jboss.netty.buffer.ChannelBuffers
+import org.jboss.netty.handler.codec.base64.Base64
 import org.jboss.netty.bootstrap.ClientBootstrap
 import java.util.concurrent.Executors
-import org.jboss.netty.handler.codec.http._
-import collection.JavaConversions._
-import websocketx._
 import java.net.{InetSocketAddress, URI}
+import java.security.MessageDigest
 import java.nio.charset.Charset
-import org.jboss.netty.buffer.ChannelBuffers
-import org.jboss.netty.util.CharsetUtil
-import akka.actor.ActorRef
 import org.jboss.netty.channel._
-import org.jboss.netty.handler.codec.http.HttpHeaders.{Values, Names}
-import grizzled.slf4j.Logging
-import java.security.{NoSuchAlgorithmException, MessageDigest}
-import org.jboss.netty.handler.codec.base64.Base64
 import socket.nio.NioClientSocketChannelFactory
+import java.util.HashMap
+import scala.collection.JavaConversions._
 
-/**
- * Usage of the simple websocket client:
- * <pre>
- *   WebSocketClient(new URI("ws://localhost:8080/thesocket")) {
- *     case Connected(client) => println("Connection has been established to: " + client.url.toASCIIString)
- *     case Disconnected(client, _) => println("The websocket to " + client.url.toASCIIString + " disconnected.")
- *     case TextMessage(client, message) => {
- *       println("RECV: " + message)
- *       client send ("ECHO: " + message)
- *     }
- *   }
- * </pre>
- */
+trait WebSocketClient {
+  def url: URI
+  def reader: WebSocketClient.FrameReader
+  def handler: WebSocketClient.Handler
+  def connect
+  def disconnect
+  def send(message: String, charset: Charset = CharsetUtil.UTF_8)
+}
+
 object WebSocketClient {
 
   object Messages {
@@ -74,12 +71,14 @@ object WebSocketClient {
 
   def apply(url: URI, handle: ActorRef): WebSocketClient = {
     require(url.getScheme.startsWith("ws"), "The scheme of the url should be 'ws' or 'wss'")
-    WebSocketClient(url) { case x => handle ! x }
+    WebSocketClient(url) {
+      case x => handle ! x
+    }
   }
 
   private class WebSocketClientHandler(handshaker: WebSocketClientHandshaker, client: WebSocketClient) extends SimpleChannelUpstreamHandler {
-
     import Messages._
+
     override def channelClosed(ctx: ChannelHandlerContext, e: ChannelStateEvent) {
       client.handler(Disconnected(client))
     }
@@ -107,81 +106,19 @@ object WebSocketClient {
 
   }
 
-  private object WebSocketUtil {
-
-    /**
-     * Performs an MD5 hash
-     *
-     * @param bytes
-     *            Data to hash
-     * @return Hashed data
-     */
-    def md5(bytes : Array[Byte]) = {
-        val md = MessageDigest.getInstance("MD5");
-        md.digest(bytes);
-    }
-
-    /**
-     * Performs an SHA-1 hash
-     *
-     * @param bytes
-     *            Data to hash
-     * @return Hashed data
-     */
-    def sha1(bytes : Array[Byte]) = {
-      val md = MessageDigest.getInstance("SHA1")
-      md.digest(bytes)
-    }
-
-    /**
-     * Base 64 encoding
-     *
-     * @param bytes
-     *            Bytes to encode
-     * @return encoded string
-     */
-    def base64(bytes : Array[Byte]) = {
-      val hashed = ChannelBuffers.wrappedBuffer(bytes)
-      Base64.encode(hashed).toString(CharsetUtil.UTF_8)
-    }
-
-    /**
-     * Creates some random bytes
-     *
-     * @param size
-     *            Number of random bytes to create
-     * @return random bytes
-     */
-    def randomBytes(size : Int) = {
-      val bytes = new Array[Byte](size)
-
-      for (val i <- 0 until size) {
-        bytes(i) = randomNumber(0, 255).asInstanceOf[Byte]
-      }
-
-      bytes
-    }
-
-    /**
-     * Generates a random number
-     *
-     * @param min
-     *            Minimum value
-     * @param max
-     *            Maximum value
-     * @return Random number
-     */
-    def randomNumber(min : Int, max : Int) : Int = (scala.math.random * max + min).asInstanceOf[Int]
-  }
-
-  private class BugFixedHandshaker(webSocketURL : URI, version : WebSocketVersion, subprotocol : String, allowExtensions : Boolean, customHeaders : java.util.Map[String, String])
+  // The Handshaker in the current version of Netty incorrectly checks the handshake
+  // messages case sensitively, when according to the spec they should be insensitive.
+  // echo.websockets.org responds with a WebSocket upgrade response which causes Netty
+  // to baulk. This handshaker fixes that in a rather hacky way, until a new version
+  // of Netty is made available.
+  private class BugFixedHandshaker(webSocketURL: URI, version: WebSocketVersion, subprotocol: String, allowExtensions: Boolean, customHeaders: java.util.Map[String, String])
     extends WebSocketClientHandshaker13(webSocketURL, version, subprotocol, allowExtensions, customHeaders)
     with Logging {
 
-    private val MAGIC_GUID : String = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-    private var expectedChallengeResponseString : String = _
+    private val MAGIC_GUID: String = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    private var expectedChallengeResponseString: String = _
 
-    override def handshake(channel : Channel) = {
+    override def handshake(channel: Channel) = {
       // Get path
       val wsURL = getWebSocketUrl;
       var path = wsURL.getPath;
@@ -218,13 +155,13 @@ object WebSocketClient {
       }
       request.addHeader(Names.ORIGIN, originValue);
 
-//      if (protocol != null && !protocol.equals("")) {
-//        request.addHeader(Names.SEC_WEBSOCKET_PROTOCOL, protocol);
-//      }
+      //      if (protocol != null && !protocol.equals("")) {
+      //        request.addHeader(Names.SEC_WEBSOCKET_PROTOCOL, protocol);
+      //      }
       request.addHeader(Names.SEC_WEBSOCKET_VERSION, "13");
 
       if (customHeaders != null) {
-        for (val header <- customHeaders.keySet()) {
+        for (val header <- customHeaders.keySet) {
           request.addHeader(header, customHeaders.get(header));
         }
       }
@@ -233,43 +170,107 @@ object WebSocketClient {
 
       channel.getPipeline.replace(classOf[HttpRequestEncoder], "ws-encoder", new WebSocket13FrameEncoder(true));
 
-      future;
+      future
     }
 
-    override def finishHandshake(channel : Channel, response : HttpResponse) = {
-      val status = HttpResponseStatus.SWITCHING_PROTOCOLS;
+    override def finishHandshake(channel: Channel, response: HttpResponse) = {
+      val status = HttpResponseStatus.SWITCHING_PROTOCOLS
 
       if (!response.getStatus.equals(status)) {
-        throw new WebSocketHandshakeException("Invalid handshake response status: " + response.getStatus());
+        throw new WebSocketHandshakeException("Invalid handshake response status: " + response.getStatus)
       }
 
-      val upgrade = response.getHeader(Names.UPGRADE);
+      val upgrade = response.getHeader(Names.UPGRADE)
       // Upgrade header should be matched case-insensitive.
       // See https://github.com/netty/netty/issues/278
       if (upgrade == null || !upgrade.toLowerCase.equals(Values.WEBSOCKET.toLowerCase)) {
-        throw new WebSocketHandshakeException("Invalid handshake response upgrade: "
-          + response.getHeader(Names.UPGRADE));
+        throw new WebSocketHandshakeException("Invalid handshake response upgrade: "+response.getHeader(Names.UPGRADE))
       }
 
       // Connection header should be matched case-insensitive.
       // See https://github.com/netty/netty/issues/278
-      val connection = response.getHeader(Names.CONNECTION);
+      val connection = response.getHeader(Names.CONNECTION)
       if (connection == null || !connection.toLowerCase.equals(Values.UPGRADE.toLowerCase)) {
-        throw new WebSocketHandshakeException("Invalid handshake response connection: "
-          + response.getHeader(Names.CONNECTION));
+        throw new WebSocketHandshakeException("Invalid handshake response connection: "+response.getHeader(Names.CONNECTION))
       }
 
-      val accept = response.getHeader(Names.SEC_WEBSOCKET_ACCEPT);
+      val accept = response.getHeader(Names.SEC_WEBSOCKET_ACCEPT)
       if (accept == null || !accept.equals(expectedChallengeResponseString)) {
-        throw new WebSocketHandshakeException(String.format("Invalid challenge. Actual: %s. Expected: %s", accept,
-          expectedChallengeResponseString));
+        throw new WebSocketHandshakeException(String.format("Invalid challenge. Actual: %s. Expected: %s", accept, expectedChallengeResponseString))
       }
 
-      channel.getPipeline.replace(classOf[HttpResponseDecoder], "ws-decoder",
-      new WebSocket13FrameDecoder(false, allowExtensions));
+      channel.getPipeline.replace(classOf[HttpResponseDecoder], "ws-decoder", new WebSocket13FrameDecoder(false, allowExtensions))
 
       setHandshakeComplete();
     }
+  }
+
+  // See above
+  private object WebSocketUtil {
+
+    /**
+     * Performs an MD5 hash
+     *
+     * @param bytes
+     * Data to hash
+     * @return Hashed data
+     */
+    def md5(bytes: Array[Byte]) = {
+      val md = MessageDigest.getInstance("MD5");
+      md.digest(bytes);
+    }
+
+    /**
+     * Performs an SHA-1 hash
+     *
+     * @param bytes
+     * Data to hash
+     * @return Hashed data
+     */
+    def sha1(bytes: Array[Byte]) = {
+      val md = MessageDigest.getInstance("SHA1")
+      md.digest(bytes)
+    }
+
+    /**
+     * Base 64 encoding
+     *
+     * @param bytes
+     * Bytes to encode
+     * @return encoded string
+     */
+    def base64(bytes: Array[Byte]) = {
+      val hashed = ChannelBuffers.wrappedBuffer(bytes)
+      Base64.encode(hashed).toString(CharsetUtil.UTF_8)
+    }
+
+    /**
+     * Creates some random bytes
+     *
+     * @param size
+     * Number of random bytes to create
+     * @return random bytes
+     */
+    def randomBytes(size: Int) = {
+      val bytes = new Array[Byte](size)
+
+      for (val i <- 0 until size) {
+        bytes(i) = randomNumber(0, 255).asInstanceOf[Byte]
+      }
+
+      bytes
+    }
+
+    /**
+     * Generates a random number
+     *
+     * @param min
+     * Minimum value
+     * @param max
+     * Maximum value
+     * @return Random number
+     */
+    def randomNumber(min: Int, max: Int): Int = (scala.math.random * max + min).asInstanceOf[Int]
   }
 
   private class DefaultWebSocketClient(
@@ -279,15 +280,16 @@ object WebSocketClient {
                                         val reader: FrameReader = defaultFrameReader) extends WebSocketClient {
     val normalized = url.normalize()
     val tgt = if (normalized.getPath == null || normalized.getPath.trim().isEmpty) {
-      new URI(normalized.getScheme, normalized.getAuthority,"/", normalized.getQuery, normalized.getFragment)
+      new URI(normalized.getScheme, normalized.getAuthority, "/", normalized.getQuery, normalized.getFragment)
     } else normalized
 
     val bootstrap = new ClientBootstrap(new NioClientSocketChannelFactory(Executors.newCachedThreadPool, Executors.newCachedThreadPool))
-    val handshaker = new BugFixedHandshaker(tgt, version, null, false, Map.empty[String, String])
+    val handshaker = new BugFixedHandshaker(tgt, version, null, false, new HashMap[String, String])
     val self = this
     var channel: Channel = _
 
     import Messages._
+
     val handler = _handler orElse defaultHandler
 
     private def defaultHandler: Handler = {
@@ -311,15 +313,19 @@ object WebSocketClient {
     })
 
     import WebSocketClient.Messages._
+
     def connect = {
       if (channel == null || !channel.isConnected) {
-        val listener = futureListener { future =>
-          if (future.isSuccess) {
-            synchronized { channel = future.getChannel }
-            handshaker.handshake(channel)
-          } else {
-            handler(ConnectionFailed(this, Option(future.getCause)))
-          }
+        val listener = futureListener {
+          future =>
+            if (future.isSuccess) {
+              synchronized {
+                channel = future.getChannel
+              }
+              handshaker.handshake(channel)
+            } else {
+              handler(ConnectionFailed(this, Option(future.getCause)))
+            }
         }
         handler(Connecting)
         val fut = bootstrap.connect(new InetSocketAddress(url.getHost, url.getPort))
@@ -336,15 +342,18 @@ object WebSocketClient {
     }
 
     def send(message: String, charset: Charset = CharsetUtil.UTF_8) = {
-      channel.write(new TextWebSocketFrame(ChannelBuffers.copiedBuffer(message, charset))).addListener(futureListener { fut =>
-        if (!fut.isSuccess) {
-          handler(WriteFailed(this, message, Option(fut.getCause)))
-        }
+      channel.write(new TextWebSocketFrame(ChannelBuffers.copiedBuffer(message, charset))).addListener(futureListener {
+        fut =>
+          if (!fut.isSuccess) {
+            handler(WriteFailed(this, message, Option(fut.getCause)))
+          }
       })
     }
 
     def futureListener(handleWith: ChannelFuture => Unit) = new ChannelFutureListener {
-      def operationComplete(future: ChannelFuture) {handleWith(future)}
+      def operationComplete(future: ChannelFuture) {
+        handleWith(future)
+      }
     }
   }
 
@@ -369,20 +378,8 @@ object WebSocketClient {
    *
    * Copied from https://github.com/cgbystrom/netty-tools
    */
-  class WebSocketException(s: String,  th: Throwable) extends java.io.IOException(s, th) {
+  class WebSocketException(s: String, th: Throwable) extends java.io.IOException(s, th) {
     def this(s: String) = this(s, null)
   }
 
-}
-trait WebSocketClient {
-
-  def url: URI
-  def reader: WebSocketClient.FrameReader
-  def handler: WebSocketClient.Handler
-
-  def connect
-
-  def disconnect
-
-  def send(message: String, charset: Charset = CharsetUtil.UTF_8)
 }

@@ -15,6 +15,7 @@
  */
 package com.thoughtworks.gatling.socket
 
+import check.receive.SocketReceiveCheckBuilder
 import request.WebSocketBuilder
 
 object Predef {
@@ -28,4 +29,6 @@ object Predef {
    * @return A PingBuilder instance, which is used to pick a specific kind of ping.
    */
   def socket(requestName: String) = WebSocketBuilder.socket(requestName)
+
+  def receive = SocketReceiveCheckBuilder.receive
 }

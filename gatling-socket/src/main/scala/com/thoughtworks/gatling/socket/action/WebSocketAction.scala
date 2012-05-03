@@ -20,9 +20,9 @@ import grizzled.slf4j.Logging
 import com.thoughtworks.gatling.socket.request.UrlWebSocketBuilder
 import com.excilys.ebi.gatling.core.action._
 import java.net.URI
-import client.WebSocketClient
 import akka.actor.{Props, ActorRef}
 import com.thoughtworks.gatling.socket.async.GatlingAsyncHandlerActor
+import com.thoughtworks.socket.WebSocketClient
 
 object WebSocketAction extends Logging {
   def socketClient(host : String, handler : ActorRef) = {
@@ -40,7 +40,7 @@ class WebSocketAction(requestName: String, next: ActorRef, requestBuilder: UrlWe
   extends Action with Logging {
 
   def execute(session: Session) {
-    val actor = context.actorOf(Props(new GatlingAsyncHandlerActor(session, next, requestBuilder.messages)))
+    val actor = context.actorOf(Props(new GatlingAsyncHandlerActor(requestName, session, next, requestBuilder.messages, requestBuilder.checks)))
     val client = WebSocketAction.socketClient(requestBuilder.url, actor)
     client.connect
   }

@@ -18,11 +18,14 @@ package com.thoughtworks.gatling.socket.async
 import com.excilys.ebi.gatling.core.session.Session
 import java.lang.System._
 import akka.actor.{ActorRef, Actor}
-import client.WebSocketClient.Messages
+import com.thoughtworks.gatling.socket.check.SocketCheck
+import com.excilys.ebi.gatling.core.check.Check._
+import com.excilys.ebi.gatling.core.check.Failure
+import com.thoughtworks.socket.WebSocketClient.Messages._
 
-class GatlingAsyncHandlerActor(val session : Session, val next : ActorRef, val messagesToSend : List[String]) extends Actor {
+class GatlingAsyncHandlerActor(val requestName : String, val session : Session, val next : ActorRef, val messagesToSend : List[String], val checks : List[SocketCheck]) extends Actor {
   def receive = {
-    case Messages.Connected(client) => {
+    case Connected(client) => {
       System.out.println("Socket Connected")
       if (messagesToSend == null) {
         System.out.println("error")
@@ -32,9 +35,20 @@ class GatlingAsyncHandlerActor(val session : Session, val next : ActorRef, val m
         System.out.println("Sent " + msg)
       })
     }
-    case Messages.Disconnected => {
+    case Disconnected => {
       System.out.println("Socket Disconnected")
       executeNext(session)
+    }
+    case TextMessage(client, text) => {
+      System.out.println("Message received: "+text)
+      val (newSessionWithSavedValues, checkResult) = applyChecks(session, text, checks)
+
+      checkResult match {
+        case Failure(errorMessage) =>
+          System.out.println("ERROR: check on request '"+requestName+"' failed: "+errorMessage+", response was: "+text)
+          executeNext(newSessionWithSavedValues)
+        case _ =>
+      }
     }
     case m => {
       System.out.println("oh crap I received something: "+ m)

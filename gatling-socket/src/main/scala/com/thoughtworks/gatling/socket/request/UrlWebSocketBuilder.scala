@@ -16,9 +16,12 @@
 package com.thoughtworks.gatling.socket.request
 
 import com.thoughtworks.gatling.socket.action.WebSocketActionBuilder
+import com.thoughtworks.gatling.socket.check.SocketCheck
 
-class UrlWebSocketBuilder(val requestName : String, val url : String, val messages : List[String]) {
-  def send(message : String) = new UrlWebSocketBuilder(requestName, url, message :: messages)
+class UrlWebSocketBuilder(val requestName : String, val url : String, val messages : List[String], val checks : List[SocketCheck]) {
+  def send(message : String) = new UrlWebSocketBuilder(requestName, url, message :: messages, checks)
+
+  def check(checks : SocketCheck*) = new UrlWebSocketBuilder(requestName, url, messages, checks.toList)
 
   private[gatling] def toActionBuilder = new WebSocketActionBuilder(requestName, this, null)
 }
