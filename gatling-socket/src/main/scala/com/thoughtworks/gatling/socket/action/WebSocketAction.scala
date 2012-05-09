@@ -19,16 +19,41 @@ import com.excilys.ebi.gatling.core.session.Session
 import grizzled.slf4j.Logging
 import com.thoughtworks.gatling.socket.request.UrlWebSocketBuilder
 import com.excilys.ebi.gatling.core.action._
-import java.net.URI
 import akka.actor.{Props, ActorRef}
-import com.thoughtworks.gatling.socket.async.GatlingAsyncHandlerActor
-import com.thoughtworks.socket.WebSocketClient
+import com.thoughtworks.gatling.socket.config.SocketConfig._
+import com.ning.http.client.{AsyncHttpClient, AsyncHttpClientConfig}
+import com.ning.http.client.websocket.{WebSocketTextListener, WebSocketListener, WebSocketUpgradeHandler, WebSocket}
+import com.thoughtworks.gatling.socket.async.{OurWebSocketListener, AsyncSocketHandlerActor}
 
 object WebSocketAction extends Logging {
-  def socketClient(host : String, handler : ActorRef) = {
-    WebSocketClient(new URI("ws://"+host+":80")) {
-      case msg => handler ! msg
+  /**
+   * The HTTP client used to send the requests
+   */
+  val SOCKET_CLIENT = {
+    // set up Netty LoggerFactory for slf4j instead of default JDK
+    try {
+      val nettyInternalLoggerFactoryClass = Class.forName("org.jboss.netty.logging.InternalLoggerFactory")
+      val nettySlf4JLoggerFactoryInstance = Class.forName("org.jboss.netty.logging.Slf4JLoggerFactory").newInstance
+      val setDefaultFactoryMethod = nettyInternalLoggerFactoryClass.getMethod("setDefaultFactory", nettyInternalLoggerFactoryClass)
+      setDefaultFactoryMethod.invoke(null, nettySlf4JLoggerFactoryInstance.asInstanceOf[AnyRef])
+
+    } catch {
+      case e => logger.info("Netty logger wasn't set up")
     }
+
+    val ahcConfigBuilder = new AsyncHttpClientConfig.Builder()
+      .setCompressionEnabled(GATLING_SOCKET_CONFIG_COMPRESSION_ENABLED)
+      .setConnectionTimeoutInMs(GATLING_SOCKET_CONFIG_CONNECTION_TIMEOUT)
+      .setRequestTimeoutInMs(GATLING_SOCKET_CONFIG_REQUEST_TIMEOUT)
+      .setMaxRequestRetry(GATLING_SOCKET_CONFIG_MAX_RETRY)
+      .setAllowPoolingConnection(GATLING_SOCKET_CONFIG_ALLOW_POOLING_CONNECTION)
+      .build
+
+    val client = new AsyncHttpClient(GATLING_SOCKET_CONFIG_PROVIDER_CLASS, ahcConfigBuilder)
+
+    system.registerOnTermination(client.close)
+
+    client
   }
 }
 
@@ -40,8 +65,18 @@ class WebSocketAction(requestName: String, next: ActorRef, requestBuilder: UrlWe
   extends Action with Logging {
 
   def execute(session: Session) {
-    val actor = context.actorOf(Props(new GatlingAsyncHandlerActor(requestName, session, next, requestBuilder.messages, requestBuilder.checks)))
-    val client = WebSocketAction.socketClient(requestBuilder.url, actor)
-    client.connect
+    info("Sending Request '" + requestName + "': Scenario '" + session.scenarioName + "', UserId #" + session.userId)
+
+    val client = WebSocketAction.SOCKET_CLIENT
+    val actor = context.actorOf(Props(new AsyncSocketHandlerActor(requestName, session, next, requestBuilder.messages, requestBuilder.checks)))
+    val listener = new OurWebSocketListener(actor)
+
+    client.prepareGet(requestBuilder.url)
+      .execute(
+        new WebSocketUpgradeHandler.Builder()
+          .addWebSocketListener(listener)
+          .build()
+      )
+      .get()
   }
 }

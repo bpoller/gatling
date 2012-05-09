@@ -21,37 +21,43 @@ import akka.actor.{ActorRef, Actor}
 import com.thoughtworks.gatling.socket.check.SocketCheck
 import com.excilys.ebi.gatling.core.check.Check._
 import com.excilys.ebi.gatling.core.check.Failure
-import com.thoughtworks.socket.WebSocketClient.Messages._
+import com.thoughtworks.gatling.socket.async.OurWebSocketListener.Messages
 
-class GatlingAsyncHandlerActor(val requestName : String, val session : Session, val next : ActorRef, val messagesToSend : List[String], val checks : List[SocketCheck]) extends Actor {
+class AsyncSocketHandlerActor(val requestName : String, val session : Session, val next : ActorRef, val messagesToSend : List[String], val checks : List[SocketCheck]) extends Actor {
   def receive = {
-    case Connected(client) => {
+    case Messages.Open(websocket) => {
       System.out.println("Socket Connected")
       if (messagesToSend == null) {
         System.out.println("error")
       }
       messagesToSend.foreach(msg => {
-        client.send(msg)
+        websocket.sendTextMessage(msg)
         System.out.println("Sent " + msg)
       })
     }
-    case Disconnected => {
+    case Messages.Close(websocket) => {
       System.out.println("Socket Disconnected")
       executeNext(session)
     }
-    case TextMessage(client, text) => {
-      System.out.println("Message received: "+text)
-      val (newSessionWithSavedValues, checkResult) = applyChecks(session, text, checks)
+    case Messages.Fragment(message : String, last : Boolean) => {
+      System.out.println("Message fragment received: "+message)
+    }
+    case Messages.Message(message : String) => {
+      System.out.println("Message received: "+message)
+      val (newSessionWithSavedValues, checkResult) = applyChecks(session, message, checks)
 
       checkResult match {
         case Failure(errorMessage) =>
-          System.out.println("ERROR: check on request '"+requestName+"' failed: "+errorMessage+", response was: "+text)
+          System.out.println("ERROR: check on request '"+requestName+"' failed: "+errorMessage+", response was: "+message)
           executeNext(newSessionWithSavedValues)
         case _ =>
       }
     }
+    case Messages.Error(t : Throwable) => {
+      System.out.println("ERROR: "+t)
+    }
     case m => {
-      System.out.println("oh crap I received something: "+ m)
+      System.out.println("I don't know what this is: "+ m)
     }
   }
 

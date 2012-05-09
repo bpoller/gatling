@@ -22,8 +22,8 @@ class MyFirstSimulation extends Simulation {
     val scn = scenario("My first scenario")
       .exec(
         socket("WS Echo")
-          .url("echo.websocket.org")
-            .send("Hello?")
+          .url("ws://echo.websocket.org:80")
+            .send("Hello")
             .check(receive.is("Hello"))
       )
 
