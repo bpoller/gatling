@@ -17,9 +17,9 @@ package com.thoughtworks.gatling.socket.async
 
 import akka.actor.ActorRef
 import com.ning.http.client.websocket.{WebSocketTextListener, WebSocket}
-import OurWebSocketListener._
+import AsyncSocketListener._
 
-object OurWebSocketListener {
+object AsyncSocketListener {
   object Messages {
     sealed trait WebSocketClientMessage
     case class Open(client: WebSocket) extends WebSocketClientMessage
@@ -30,7 +30,7 @@ object OurWebSocketListener {
   }
 }
 
-class OurWebSocketListener(val actor : ActorRef) extends WebSocketTextListener {
+class AsyncSocketListener(var actor : ActorRef) extends WebSocketTextListener {
   def onOpen(websocket: WebSocket) {
     actor ! Messages.Open(websocket)
   }

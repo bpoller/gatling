@@ -26,6 +26,12 @@ class MyFirstSimulation extends Simulation {
             .send("Hello")
             .check(receive.is("Hello"))
       )
+      .exec(
+        socket("WS Echo")
+          .url("ws://echo.websocket.org:80")
+          .send("Howdy")
+          .check(receive.is("Howdy"))
+      )
 
     List(scn.configure.users(1))
   }
